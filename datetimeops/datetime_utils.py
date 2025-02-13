@@ -22,9 +22,13 @@ def epoch(date_str=None) -> int:
     if date_str is None:
         return int(time.time())
     try:
+        # Attempt to parse with time component
         dt = datetime.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
     except ValueError:
+        # Fallback to date-only, with time set to 00:00:00
         dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+
+    # Return the Unix timestamp as an integer
     return int(dt.timestamp())
 
 
@@ -46,6 +50,15 @@ def change_date_format(input_date: Union[str, datetime.datetime, datetime.date],
             return datetime.datetime.strptime(input_date, from_fmt).strftime(to_fmt)
         except ValueError:
             return None  # Return None instead of failing silently
+
+
+def sleep_counter(sleep_seconds):
+    while sleep_seconds > 0:
+        time.sleep(1)
+        sleep_seconds -= 1
+        # Without spaces, when it goes from 10 to 9, trailing 0 stays so look like 90,80,70 ...
+        print(f"\rWait: {sleep_seconds}      ", end='')
+    print()
 
 
 def add_days_to_now_utc(days, fmt="%Y-%m-%d %H:%M:%S"):
@@ -79,51 +92,81 @@ def months_between_dates(start_date, end_date):
 
 def days_between_dates(start_date, end_date, fmt="%Y-%m-%d"):
     """Returns the number of days between two dates."""
-    start_date = datetime.datetime.strptime(start_date, fmt)
-    end_date = datetime.datetime.strptime(end_date, fmt)
-    return (end_date - start_date).days
+    # Convert string dates to datetime objects if necessary
+    if isinstance(start_date, str):
+        start_date = datetime.datetime.strptime(start_date, fmt)
+    if isinstance(end_date, str):
+        end_date = datetime.datetime.strptime(end_date, fmt)
+
+    # Calculate the difference between the two dates
+    time_difference = end_date - start_date
+    return time_difference.days
 
 
 def time_passed(start, end):
     """
-    Returns the time difference between two datetime objects or strings.
+    The time_passed function takes two datetime objects or strings and returns a dictionary with the following keys:
 
-    :return: Dictionary with days, hours, minutes, total seconds, and human-readable formats.
+        days: The number of days between the start and end dates.
+        hours: The number of hours between the start and end dates.
+        minutes: The number of minutes between the start and end dates.
+        seconds (Use total_seconds instead): Always be less than 60, even if time_difference > 24 hours
+            (i.e., it is not cumulative).
+        total_seconds: The number of seconds between the start and end dates.
+        human_readable: The complete time passed in human_readable format (D days H hours M minutes SS seconds)
+
+    :param start: start date/time
+    :param end: end date/time
+    :return: A dictionary
     """
+    # Convert string dates to datetime objects if necessary
     if isinstance(start, str):
         start = datetime.datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
     if isinstance(end, str):
         end = datetime.datetime.strptime(end, "%Y-%m-%d %H:%M:%S")
 
+    # Convert epoch dates to datetime objects if necessary
     if isinstance(start, int):
         start = datetime.datetime.fromtimestamp(start)
     if isinstance(end, int):
         end = datetime.datetime.fromtimestamp(end)
 
+    # Calculate time difference
     time_difference = end - start
-    days = time_difference.days
+
+    # Extract time components
+    days = time_difference.days,
     hours, remainder = divmod(time_difference.seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
+
+    # Calculate total seconds
     total_seconds = time_difference.total_seconds()
+    human_readable = ((f"{days[0]} days " if days[0] > 0 else "") +
+                      (f"{hours} hours " if hours > 0 else "") +
+                      (f"{minutes} minutes " if minutes > 0 else "") +
+                      f"{seconds} seconds")
+    human_shorthand = ((f"{days[0]} days " if days[0] > 0 else "") +
+                       (f"{hours} hr " if hours > 0 else "") +
+                       (f"{minutes} min " if minutes > 0 else "") +
+                       f"{seconds} sec")
 
-    human_readable = (f"{days} days " if days > 0 else "") + \
-                     (f"{hours} hours " if hours > 0 else "") + \
-                     (f"{minutes} minutes " if minutes > 0 else "") + \
-                     f"{seconds} seconds"
-
-    human_shorthand = (f"{days} days " if days > 0 else "") + \
-                      (f"{hours} hr " if hours > 0 else "") + \
-                      (f"{minutes} min " if minutes > 0 else "") + \
-                      f"{seconds} sec"
-
-    return {'days': days, 'hours': hours, 'minutes': minutes,
+    return {'days': days[0], 'hours': hours, 'minutes': minutes,
             'total_seconds': total_seconds,
             'human_readable': human_readable, 'human_shorthand': human_shorthand}
 
 
 def offset_date(date, offset_type: Literal['years', 'months', 'days', 'weeks', 'hours', 'minutes', 'seconds', 'micros'],
                 offset_amount: int, to_fmt=None, from_fmt="%Y-%m-%d %H:%M:%S"):
-    """Returns a date offset by the specified amount of time."""
+    """
+    Returns a date offset by the specified amount of time (based on offset_type and offset_amount)
+
+    :param date: date to apply offset to
+    :param offset_type: offset by (years/ months/ days/ weeks/ hours/ minutes/ seconds/ micros)
+    :param offset_amount: -ve integer to go back in time, +ve to go forward
+    :param from_fmt: input date format
+    :param to_fmt: output date format (if None, defaults to from_fmt
+    :return: date with offset applied
+    """
     if to_fmt is None:
         to_fmt = from_fmt
     date = datetime.datetime.strptime(str(date), from_fmt)
@@ -134,7 +177,17 @@ def offset_date(date, offset_type: Literal['years', 'months', 'days', 'weeks', '
 
 def get_first_last_date_of_month(date: str = now_utc(fmt="%Y-%m-%d"),
                                  from_fmt: str = "%Y-%m-%d", output_fmt: str = "%Y-%m-%d"):
-    """Returns the first and last day of the month for a given date."""
+    """
+    Returns the first and last day of the month for a given date.
+    Example:
+      get_first_last_date_of_month(date='02/14/2020', from_fmt='%m/%d/%Y', output_fmt='%Y-%m-%d')
+      -> ('2021-05-01', '2021-05-31')
+
+    :param date: any date
+    :param from_fmt: format of the date parameter
+    :param output_fmt: format you want your first and last date in
+    :return: (first_date_of_month, last_date_of_month)
+    """
     date = datetime.datetime.strptime(str(date), from_fmt)
     first_date_of_month = date.replace(day=1).strftime(output_fmt)
     days_in_month = calendar.monthrange(date.year, date.month)[-1]
@@ -144,9 +197,13 @@ def get_first_last_date_of_month(date: str = now_utc(fmt="%Y-%m-%d"),
 
 def hhmmss_to_seconds(hhmmss):
     """Converts hh:mm:ss or mm:ss format to total seconds."""
+    # If the input is a timedelta, we can directly return the total seconds
     if isinstance(hhmmss, datetime.timedelta):
         return int(hhmmss.total_seconds())
+
+    # Replace any periods with colons (to handle decimal separator)
     hhmmss = hhmmss.replace('.', ':')
+
     parts = list(map(int, hhmmss.split(':')))
     return sum(x * 60 ** i for i, x in enumerate(reversed(parts)))
 

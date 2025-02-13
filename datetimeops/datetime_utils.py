@@ -32,13 +32,38 @@ def epoch(date_str=None) -> int:
     return int(dt.timestamp())
 
 
-def validate_date(d, fmt="%Y-%m-%d %H:%M:%S", chk_future_date=False) -> bool:
-    """Validates if a given string is a valid date in the specified format."""
-    try:
-        dt = datetime.datetime.strptime(d, fmt)
-        return dt.strftime('%Y-%m-%d') >= now_utc('%Y-%m-%d') if chk_future_date else True
-    except ValueError:
+def validate_date(d: Union[str, datetime.datetime], fmt=None, chk_future_date=False) -> bool:
+    """Validates if a given string or datetime object is a valid date.
+
+    - If `d` is a string, attempts parsing with `fmt` or auto-detects format.
+    - If `chk_future_date=True`, ensures the date is in the future.
+    """
+    if isinstance(d, datetime.datetime):  # If already a datetime object
+        dt = d.astimezone(datetime.timezone.utc)  # Ensure UTC timezone
+    elif isinstance(d, int):  # Reject integers (unless we want to support Unix timestamps)
         return False
+    elif isinstance(d, str):  # Try parsing string input
+        if fmt:
+            try:
+                dt = datetime.datetime.strptime(d, fmt)
+            except ValueError:
+                return False
+        else:
+            # Auto-detect format
+            formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]  # Common formats
+            for fmt in formats:
+                try:
+                    dt = datetime.datetime.strptime(d, fmt)
+                    break
+                except ValueError:
+                    continue
+            else:
+                return False  # None of the formats worked
+        dt = dt.replace(tzinfo=datetime.timezone.utc)  # Convert to UTC-aware datetime
+    else:
+        return False  # Reject all other types (lists, dicts, etc.)
+
+    return dt >= datetime.datetime.now(datetime.timezone.utc) if chk_future_date else True
 
 
 def change_date_format(input_date: Union[str, datetime.datetime, datetime.date], to_fmt, from_fmt="%Y-%m-%d %H:%M:%S"):
@@ -46,10 +71,7 @@ def change_date_format(input_date: Union[str, datetime.datetime, datetime.date],
     if isinstance(input_date, (datetime.datetime, datetime.date)):
         return input_date.strftime(to_fmt)
     if isinstance(input_date, str):
-        try:
-            return datetime.datetime.strptime(input_date, from_fmt).strftime(to_fmt)
-        except ValueError:
-            return None  # Return None instead of failing silently
+        return datetime.datetime.strptime(input_date, from_fmt).strftime(to_fmt)
 
 
 def sleep_counter(sleep_seconds):
@@ -67,12 +89,12 @@ def add_days_to_now_utc(days, fmt="%Y-%m-%d %H:%M:%S"):
     return new_date.strftime(fmt)
 
 
-def add_days_to_date(date, days_to_add: int, to_fmt=None, from_fmt="%Y-%m-%d %H:%M:%S"):
+def add_days_to_date(date, days_to_add: int, to_fmt=None, from_fmt=None):
     """Adds days to a given date."""
     return offset_date(date, offset_type='days', offset_amount=days_to_add, to_fmt=to_fmt, from_fmt=from_fmt)
 
 
-def add_months_to_date(date, months_to_add: int, to_fmt=None, from_fmt="%Y-%m-%d %H:%M:%S"):
+def add_months_to_date(date, months_to_add: int, to_fmt=None, from_fmt=None):
     """Adds months to a given date."""
     return offset_date(date, offset_type='months', offset_amount=months_to_add, to_fmt=to_fmt, from_fmt=from_fmt)
 
@@ -155,10 +177,18 @@ def time_passed(start, end):
             'human_readable': human_readable, 'human_shorthand': human_shorthand}
 
 
-def offset_date(date, offset_type: Literal['years', 'months', 'days', 'weeks', 'hours', 'minutes', 'seconds', 'micros'],
-                offset_amount: int, to_fmt=None, from_fmt="%Y-%m-%d %H:%M:%S"):
+def offset_date(
+        date: Union[str, datetime.datetime, datetime.date],
+        offset_type: Literal['years', 'months', 'days', 'weeks', 'hours', 'minutes', 'seconds', 'micros'],
+        offset_amount: int,
+        to_fmt: str = None,
+        from_fmt: str = None
+) -> str:
     """
-    Returns a date offset by the specified amount of time (based on offset_type and offset_amount)
+    Returns a date offset by the specified amount of time.
+    - If `date` is a string, it will be parsed using `from_fmt` (or auto-detected if `None`).
+    - If `date` is a `datetime` or `date` object, it is used directly.
+    - `to_fmt` determines the output format. If not provided, it defaults to `from_fmt`.
 
     :param date: date to apply offset to
     :param offset_type: offset by (years/ months/ days/ weeks/ hours/ minutes/ seconds/ micros)
@@ -167,12 +197,31 @@ def offset_date(date, offset_type: Literal['years', 'months', 'days', 'weeks', '
     :param to_fmt: output date format (if None, defaults to from_fmt
     :return: date with offset applied
     """
+
+    # If input is already a datetime object, use it directly
+    if isinstance(date, datetime.datetime):
+        dt = date
+    elif isinstance(date, datetime.date):  # Convert date to datetime
+        dt = datetime.datetime(date.year, date.month, date.day)
+    else:
+        # Auto-detect format based on length of the string
+        if from_fmt:
+            dt = datetime.datetime.strptime(date, from_fmt)
+        else:
+            if len(date) > 10:  # If date includes time
+                dt = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+            else:  # If date is in YYYY-MM-DD format
+                dt = datetime.datetime.strptime(date, "%Y-%m-%d")
+
+    # Apply offset
+    offset_kwargs = {offset_type: offset_amount}
+    dt += relativedelta(**offset_kwargs)
+
+    # Ensure output format defaults to input format if not explicitly provided
     if to_fmt is None:
-        to_fmt = from_fmt
-    date = datetime.datetime.strptime(str(date), from_fmt)
-    offset = relativedelta(**{offset_type: offset_amount})
-    new_date = date + offset
-    return new_date.strftime(to_fmt)
+        to_fmt = from_fmt if from_fmt else "%Y-%m-%d %H:%M:%S"
+
+    return dt.strftime(to_fmt)
 
 
 def get_first_last_date_of_month(date: str = now_utc(fmt="%Y-%m-%d"),

@@ -27,13 +27,48 @@ def test_epoch():
 
 # ----- VALIDATION & FORMAT CONVERSION TESTS -----
 def test_validate_date():
-    assert validate_date("2023-05-12 14:30:00")
-    assert not validate_date("Invalid Date")
-    assert validate_date("2025-01-01", chk_future_date=True)  # Future date should be True
+    """Tests validate_date with various input scenarios."""
+
+    # ✅ Valid cases (String input)
+    assert validate_date("2023-05-12 14:30:00")  # Valid date
+    assert validate_date("2025-01-01")  # Valid, no format provided
+    assert validate_date("2025-01-01", fmt="%Y-%m-%d")  # Explicit format
+
+    # ✅ Valid cases (Datetime object input)
+    assert validate_date(datetime.datetime(2025, 1, 1, 14, 30, 0))  # Datetime object
+
+    # ✅ Future date checks (String input)
+    future_date_str = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=10)).strftime("%Y-%m-%d")
+    assert validate_date(future_date_str, chk_future_date=True)  # Should return True
+
+    # ✅ Future date checks (Datetime object)
+    future_date_dt = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=10)
+    assert validate_date(future_date_dt, chk_future_date=True)  # Should return True
+
+    # ❌ Past date checks (String input)
+    past_date_str = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=10)).strftime("%Y-%m-%d")
+    assert not validate_date(past_date_str, chk_future_date=True)  # Should return False
+
+    # ❌ Past date checks (Datetime object)
+    past_date_dt = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=10)
+    assert not validate_date(past_date_dt, chk_future_date=True)  # Should return False
+
+    # ❌ Invalid inputs
+    assert not validate_date("Invalid Date")  # Garbage input
+    assert not validate_date("2025/01/01", fmt="%Y-%m-%d")  # Wrong format
+    assert not validate_date(1234567890)  # Invalid integer input
 
 def test_change_date_format():
+    """Tests change_date_format for valid and invalid inputs."""
+
+    # ✅ Valid cases
     assert change_date_format("2023-05-12 14:30:00", "%d-%m-%Y") == "12-05-2023"
-    assert change_date_format("Invalid Date", "%d-%m-%Y") is None  # Returns None for invalid
+    assert change_date_format("2023-05-12 14:30:00", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S") == "2023-05-12"
+    assert change_date_format("2023-05-12", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d") == "2023-05-12 00:00:00"
+
+    # ❌ Invalid case: should raise ValueError
+    with pytest.raises(ValueError):
+        change_date_format("Invalid Date", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S")
 
 
 # ----- DATE ARITHMETIC TESTS -----

@@ -1,0 +1,114 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  release:
+    types: [created]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set Up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+
+      - name: Run Tests
+        run: pytest tests/
+
+  tag:
+    needs: test  # ✅ Runs only if tests pass
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Ensure full history is available
+
+      - name: Check if setup.py was modified
+        id: check_version_change
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q '^setup.py$'; then
+            echo "SETUP_CHANGED=true" >> $GITHUB_ENV
+          else
+            echo "SETUP_CHANGED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Exit if setup.py was not modified
+        if: env.SETUP_CHANGED == 'false'
+        run: |
+          echo "setup.py was not modified, skipping version tagging."
+          exit 0
+
+      - name: Get Version from setup.py
+        id: get_version
+        run: echo "VERSION=$(grep 'version=' setup.py | cut -d'\"' -f2)" >> $GITHUB_ENV
+
+      - name: Get Latest Git Tag
+        id: get_latest_tag
+        run: |
+          git fetch --tags
+          LATEST_TAG=$(git tag --sort=-v:refname | head -n 1 | sed 's/v//' || echo "0.0.0")
+          echo "LATEST_TAG=${LATEST_TAG}" >> $GITHUB_ENV
+
+      - name: Validate Version Increment
+        run: |
+          NEW_VERSION=${VERSION}
+          OLD_VERSION=${LATEST_TAG:-0.0.0}
+
+          echo "Checking if version $NEW_VERSION is greater than latest tag $OLD_VERSION..."
+
+          if [ "$(printf '%s\n' "$OLD_VERSION" "$NEW_VERSION" | sort -V | tail -n 1)" != "$NEW_VERSION" ]; then
+            echo "🚨 ERROR: Version must increment properly (major/minor/patch)."
+            exit 1
+          fi
+
+          echo "✅ Version is valid. Proceeding with tagging."
+
+      - name: Create Git Tag
+        run: |
+          git tag v${VERSION}
+          git push origin v${VERSION}
+
+  publish:
+    needs: tag  # ✅ Only runs if a release is manually created
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build Package
+        run: python -m build
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*

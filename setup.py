@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="datetimeops",
-    version="0.1.0",
+    version="0.1.1",
     description="A lightweight Python library for date and time operations.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    author="Kanad Rishiraj (@RoamingSaint)",
+    author="Kanad Rishiraj (RoamingSaint)",
     author_email="roamingsaint27@gmail.com",
     url="https://github.com/roamingsaint/datetimeops",  # Update with your actual repo
     packages=find_packages(),

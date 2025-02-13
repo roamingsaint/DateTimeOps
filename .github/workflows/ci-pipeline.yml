@@ -41,24 +41,18 @@ jobs:
         with:
           fetch-depth: 0  # Ensure full history is available
 
-      - name: Check if setup.py was modified
-        id: check_version_change
-        run: |
-          if git diff --name-only HEAD^ HEAD | grep -q '^setup.py$'; then
-            echo "SETUP_CHANGED=true" >> $GITHUB_ENV
-          else
-            echo "SETUP_CHANGED=false" >> $GITHUB_ENV
-          fi
-
-      - name: Exit if setup.py was not modified
-        if: env.SETUP_CHANGED == 'false'
-        run: |
-          echo "setup.py was not modified, skipping version tagging."
-          exit 0
-
       - name: Get Version from setup.py
         id: get_version
-        run: echo "VERSION=$(grep 'version=' setup.py | cut -d'\"' -f2)" >> $GITHUB_ENV
+        run: |
+          VERSION=$(grep -Po '(?<=version=")[^"]+' setup.py)
+
+          if [ -z "$VERSION" ]; then
+            echo "🚨 ERROR: Could not extract version from setup.py. Ensure version='x.y.z' exists!"
+            exit 1
+          fi
+
+          echo "Extracted version: $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Get Latest Git Tag
         id: get_latest_tag
@@ -74,9 +68,26 @@ jobs:
 
           echo "Checking if version $NEW_VERSION is greater than latest tag $OLD_VERSION..."
 
-          if [ "$(printf '%s\n' "$OLD_VERSION" "$NEW_VERSION" | sort -V | tail -n 1)" != "$NEW_VERSION" ]; then
+          IFS='.' read -r OLD_MAJOR OLD_MINOR OLD_PATCH <<< "$OLD_VERSION"
+          IFS='.' read -r NEW_MAJOR NEW_MINOR NEW_PATCH <<< "$NEW_VERSION"
+
+          if [ "$NEW_MAJOR" -lt "$OLD_MAJOR" ] || \
+             ([ "$NEW_MAJOR" -eq "$OLD_MAJOR" ] && [ "$NEW_MINOR" -lt "$OLD_MINOR" ]) || \
+             ([ "$NEW_MAJOR" -eq "$OLD_MAJOR" ] && [ "$NEW_MINOR" -eq "$OLD_MINOR" ] && [ "$NEW_PATCH" -le "$OLD_PATCH" ]); then
             echo "🚨 ERROR: Version must increment properly (major/minor/patch)."
             exit 1
+          fi
+
+          if [ "$NEW_MAJOR" -gt "$OLD_MAJOR" ]; then
+            if [ "$NEW_MINOR" -ne "0" ] || [ "$NEW_PATCH" -ne "0" ]; then
+              echo "🚨 ERROR: Major version must reset minor and patch to 0 (e.g., 0.1.0 → 1.0.0)."
+              exit 1
+            fi
+          elif [ "$NEW_MINOR" -gt "$OLD_MINOR" ]; then
+            if [ "$NEW_PATCH" -ne "0" ]; then
+              echo "🚨 ERROR: Minor version must reset patch to 0 (e.g., 0.1.0 → 0.2.0)."
+              exit 1
+            fi
           fi
 
           echo "✅ Version is valid. Proceeding with tagging."

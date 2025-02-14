@@ -66,8 +66,9 @@ jobs:
         run: |
           if [ "$VERSION" == "$LATEST_TAG" ]; then
             echo "🟡 Version $VERSION is already tagged. Skipping tag creation."
-            exit 0
+            exit 0  # ✅ Immediately exit to prevent further steps from running
           fi
+        shell: /usr/bin/bash -e {0}
 
       - name: Validate Version Increment
         run: |

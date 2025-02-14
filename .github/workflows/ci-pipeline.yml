@@ -41,16 +41,20 @@ jobs:
         with:
           fetch-depth: 0  # Ensure full history is available
 
+      - name: Authenticate Git
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "github-actions[bot]"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+
       - name: Get Version from setup.py
         id: get_version
         run: |
           VERSION=$(grep -Po '(?<=version=")[^"]+' setup.py)
-
           if [ -z "$VERSION" ]; then
             echo "🚨 ERROR: Could not extract version from setup.py. Ensure version='x.y.z' exists!"
             exit 1
           fi
-
           echo "Extracted version: $VERSION"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
@@ -91,12 +95,6 @@ jobs:
           fi
 
           echo "✅ Version is valid. Proceeding with tagging."
-
-      - name: Configure Git with PAT
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
 
       - name: Create Git Tag
         run: |

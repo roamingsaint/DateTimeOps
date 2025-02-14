@@ -33,13 +33,14 @@ jobs:
         run: pytest tests/
 
   tag:
-    needs: test  # ✅ Runs only if tests pass
+    needs: test
     runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.modified, 'setup.py')  # ✅ Only runs if setup.py changed
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Ensure full history is available
+          fetch-depth: 0    # Ensure full history is available
 
       - name: Get Version from setup.py
         id: get_version

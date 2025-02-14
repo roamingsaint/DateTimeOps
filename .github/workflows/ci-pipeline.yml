@@ -33,8 +33,9 @@ jobs:
         run: pytest tests/
 
   tag:
-    needs: test  # ✅ Runs only if tests pass
+    needs: test
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'  # ✅ Only run on push events
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -61,6 +62,13 @@ jobs:
           LATEST_TAG=$(git tag --sort=-v:refname | head -n 1 | sed 's/v//' || echo "0.0.0")
           echo "LATEST_TAG=${LATEST_TAG}" >> $GITHUB_ENV
 
+      - name: Skip Tag if Version is the Same
+        run: |
+          if [ "$VERSION" == "$LATEST_TAG" ]; then
+            echo "🟡 Version $VERSION is already tagged. Skipping tag creation."
+            exit 0
+          fi
+
       - name: Validate Version Increment
         run: |
           NEW_VERSION=${VERSION}
@@ -68,8 +76,22 @@ jobs:
 
           echo "Checking if version $NEW_VERSION is greater than latest tag $OLD_VERSION..."
 
-          if [ "$(printf '%s\n' "$OLD_VERSION" "$NEW_VERSION" | sort -V | tail -n 1)" != "$NEW_VERSION" ]; then
-            echo "🚨 ERROR: Version must be greater than the latest tag."
+          IFS='.' read -r OLD_MAJOR OLD_MINOR OLD_PATCH <<< "$OLD_VERSION"
+          IFS='.' read -r NEW_MAJOR NEW_MINOR NEW_PATCH <<< "$NEW_VERSION"
+
+          if [ "$NEW_MAJOR" -lt "$OLD_MAJOR" ] || \
+             ([ "$NEW_MAJOR" -eq "$OLD_MAJOR" ] && [ "$NEW_MINOR" -lt "$OLD_MINOR" ]) || \
+             ([ "$NEW_MAJOR" -eq "$OLD_MAJOR" ] && [ "$NEW_MINOR" -eq "$OLD_MINOR" ] && [ "$NEW_PATCH" -le "$OLD_PATCH" ]); then
+            echo "🚨 ERROR: Version must increment properly (major/minor/patch)."
+            exit 1
+          fi
+
+          if [ "$NEW_MAJOR" -gt "$OLD_MAJOR" ] && ([ "$NEW_MINOR" -ne "0" ] || [ "$NEW_PATCH" -ne "0" ]); then
+            echo "🚨 ERROR: Major version must reset minor and patch to 0 (e.g., 0.1.0 → 1.0.0)."
+            exit 1
+          fi
+          if [ "$NEW_MINOR" -gt "$OLD_MINOR" ] && [ "$NEW_PATCH" -ne "0" ]; then
+            echo "🚨 ERROR: Minor version must reset patch to 0 (e.g., 0.1.0 → 0.2.0)."
             exit 1
           fi
 

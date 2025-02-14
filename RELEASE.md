@@ -1,6 +1,6 @@
 # Release Process for DateTimeOps
 
-This document outlines the release process for the DateTimeOps package. Follow these steps to ensure a smooth release cycle.
+This document outlines the release process for the DateTimeOps package. These steps ensure a smooth release cycle.
 
 ---
 

@@ -62,13 +62,12 @@ jobs:
           LATEST_TAG=$(git tag --sort=-v:refname | head -n 1 | sed 's/v//' || echo "0.0.0")
           echo "LATEST_TAG=${LATEST_TAG}" >> $GITHUB_ENV
 
+      # **Exit Job Immediately if Version is Already Tagged**
       - name: Skip Tag if Version is the Same
+        if: env.VERSION == env.LATEST_TAG
         run: |
-          if [ "$VERSION" == "$LATEST_TAG" ]; then
-            echo "🟡 Version $VERSION is already tagged. Skipping tag creation."
-            exit 0  # ✅ Immediately exit to prevent further steps from running
-          fi
-        shell: /usr/bin/bash -e {0}
+          echo "🟡 Version $VERSION is already tagged. Skipping tag creation."
+          exit 0  # ✅ Job exits here, preventing further steps from running
 
       - name: Validate Version Increment
         run: |

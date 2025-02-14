@@ -92,18 +92,12 @@ jobs:
 
           echo "✅ Version is valid. Proceeding with tagging."
 
-      - name: Debug GitHub Token
-        run: |
-          echo "Checking authentication..."
-          git ls-remote https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
-
       - name: Create Git Tag
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
           git tag v${VERSION}
-          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
-          git push origin v${VERSION}
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git v${VERSION}
 
   publish:
     needs: tag  # ✅ Only runs if a release is manually created

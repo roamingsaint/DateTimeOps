@@ -106,9 +106,8 @@ jobs:
           git push origin v${VERSION}
 
   publish:
-    needs: tag  # ✅ Only runs if a release is manually created
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: github.event_name == 'release'  # ✅ Runs whenever a GitHub Release is made
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3

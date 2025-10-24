@@ -147,6 +147,8 @@ def time_passed(start, end):
     if isinstance(end, str):
         end = datetime.datetime.strptime(end, "%Y-%m-%d %H:%M:%S")
 
+    assert start <= end, "Required: Start date <= end date"
+
     # Convert epoch dates to datetime objects if necessary
     if isinstance(start, int):
         start = datetime.datetime.fromtimestamp(start)

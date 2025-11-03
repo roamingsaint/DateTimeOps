@@ -17,6 +17,11 @@ def now_tz(tz='UTC', fmt="%Y-%m-%d %H:%M:%S"):
     return datetime.datetime.now(pytz.timezone(tz)).strftime(fmt)
 
 
+def yesterday(tz='UTC', fmt="%Y-%m-%d"):
+    """Returns the current time in the specified timezone."""
+    return add_days_to_date(datetime.datetime.now(pytz.timezone(tz)).strftime(fmt), -1, from_fmt=fmt, to_fmt=fmt)
+
+
 def epoch(date_str=None) -> int:
     """Returns the Unix timestamp for a given date or the current timestamp if None."""
     if date_str is None:

@@ -41,7 +41,8 @@ print(add_days_to_date("2025-02-13", 10))  # '2025-02-23 00:00:00'
 ## Functions
 ### Date & Time Retrieval
 - `now_utc(fmt="%Y-%m-%d %H:%M:%S")` → Returns the current UTC time.
-- `now_tz(tz, fmt="%Y-%m-%d %H:%M:%S")` → Returns the current time in the specified timezone.
+- `now_tz(tz='UTC', fmt="%Y-%m-%d %H:%M:%S")` → Returns the current time in the specified timezone.
+- `yesterday(tz='UTC', fmt="%Y-%m-%d %H:%M:%S")` → Returns yesterday's time in the specified timezone.
 
 ### Date Validation & Formatting
 - `validate_date(d, fmt=None, chk_future_date=False)` → Checks if a date is valid and optionally if it is in the future.

@@ -1,8 +1,11 @@
 import datetime
 import time
+
 import pytest
+import pytz
+
 from datetimeops.datetime_utils import (
-    now_utc, now_tz, epoch, validate_date, change_date_format,
+    now_utc, now_tz, yesterday, epoch, validate_date, change_date_format,
     add_days_to_date, add_months_to_date, delta_between_dates,
     months_between_dates, days_between_dates, time_passed,
     offset_date, get_first_last_date_of_month, hhmmss_to_seconds,
@@ -18,6 +21,16 @@ def test_now_utc():
 def test_now_tz():
     assert isinstance(now_tz("Asia/Kolkata"), str)
     assert isinstance(now_tz("UTC"), str)
+
+def test_yesterday():
+    today = datetime.datetime.now(pytz.timezone("UTC")).strftime("%Y-%m-%d")
+    expected_yesterday = (datetime.datetime.now(pytz.timezone("UTC")) - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    assert yesterday() == expected_yesterday
+
+def test_yesterday_tz():
+    tz = "Asia/Kolkata"
+    expected = (datetime.datetime.now(pytz.timezone(tz)) - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    assert yesterday(tz=tz) == expected
 
 def test_epoch():
     assert isinstance(epoch(), int)

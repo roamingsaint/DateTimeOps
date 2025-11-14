@@ -23,17 +23,16 @@ def yesterday(tz='UTC', fmt="%Y-%m-%d"):
 
 
 def epoch(date_str=None) -> int:
-    """Returns the Unix timestamp for a given date or the current timestamp if None."""
+    """Returns the Unix timestamp for a given date (UTC) or the current UTC timestamp if None."""
     if date_str is None:
         return int(time.time())
     try:
-        # Attempt to parse with time component
         dt = datetime.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
     except ValueError:
-        # Fallback to date-only, with time set to 00:00:00
         dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
 
-    # Return the Unix timestamp as an integer
+    # Force UTC
+    dt = dt.replace(tzinfo=datetime.timezone.utc)
     return int(dt.timestamp())
 
 
